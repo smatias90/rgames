@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>R-Games</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 2rem;
+      background-color: #f4f4f4;
+    }
+    h1, h2 {
+      text-align: center;
+    }
+    form {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+      gap: 1rem;
+      margin-bottom: 1rem;
+      align-items: center;
+    }
+    input[type="date"],
+    input[type="text"],
+    input[type="password"] {
+      padding: 0.5rem;
+      font-size: 1rem;
+      width: 100%;
+    }
+    button {
+      padding: 0.5rem 1rem;
+      font-size: 1rem;
+      background-color: #007BFF;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      background-color: white;
+    }
+    th, td {
+      padding: 0.75rem;
+      border: 1px solid #ddd;
+      text-align: center;
+    }
+    .delete-btn {
+      background-color: #dc3545;
+      color: white;
+      border: none;
+      padding: 0.25rem 0.5rem;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+    .top-link {
+      display: block;
+      text-align: center;
+      margin: 1rem 0;
+    }
+    #passwordPage {
+      display: block;
+    }
+    #mainPage {
+      display: none;
+    }
+  </style>
+</head>
+<body>
+  <div id="passwordPage">
+    <h1>Enter Password</h1>
+    <form id="passwordForm">
+      <input type="password" id="password" placeholder="Enter Password" required>
+      <button type="submit">Submit</button>
+    </form>
+    <p id="passwordError" style="color: red; display: none;">Incorrect password. Please try again.</p>
+  </div>
+
+  <div id="mainPage">
+    <h1>R-Games</h1>
+    <form id="raceForm">
+      <input type="date" id="raceDate" required>
+      <input type="text" id="athleteName" placeholder="Athlete Name" required>
+      <input type="text" id="middleDistance" pattern="\d{1,2}:\d{2}:\d{2}" placeholder="Middle Distance (mm:ss:00)" required>
+      <input type="text" id="sprintTime" pattern="\d{1,2}:\d{2}:\d{2}" placeholder="Sprint (mm:ss:00)" required>
+      <input type="text" id="hangingTime" pattern="\d{1,2}:\d{2}:\d{2}" placeholder="Hanging (mm:ss:00)" required>
+      <button type="submit">Add</button>
+    </form>
+
+    <a href="#" class="top-link" onclick="showBestTimes()">🏆 View Best Times</a>
+
+    <table id="raceTable">
+      <thead>
+        <tr>
+          <th>🗓️ Date</th>
+          <th>🧍 Athlete</th>
+          <th>🏃 Middle Distance</th>
+          <th>⚡ Sprint</th>
+          <th>🪂 Hanging Time</th>
+          <th>📊 Score</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+
+    <div id="bestTimes" style="display:none; margin-top: 2rem;">
+      <h2>🏅 Best Times Per Athlete</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>🧍 Athlete</th>
+            <th>🏃 Best Middle</th>
+            <th>⚡ Best Sprint</th>
+            <th>🪂 Best Hanging</th>
+          </tr>
+        </thead>
+        <tbody id="bestTimesBody"></tbody>
+      </table>
+    </div>
+
+    <div id="medalsPage" style="display:none; margin-top: 2rem;">
+      <h2>🎖️ Medal Count</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>🧍 Athlete</th>
+            <th>🥇 Gold</th>
+            <th>🥈 Silver</th>
+            <th>🥉 Bronze</th>
+          </tr>
+        </thead>
+        <tbody id="medalsTable"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <script>
+    const passwordForm = document.getElementById('passwordForm');
+    const passwordInput = document.getElementById('password');
+    const passwordPage = document.getElementById('passwordPage');
+    const mainPage = document.getElementById('mainPage');
+    const passwordError = document.getElementById('passwordError');
+    const correctPassword = 'scp'; // Set the correct password
+
+    passwordForm.addEventListener('submit', function(e) {
+      e.preventDefault();
+      if (passwordInput.value === correctPassword) {
+        passwordPage.style.display = 'none';
+        mainPage.style.display = 'block';
+      } else {
+        passwordError.style.display = 'block';
+      }
+    });
+
+    const form = document.getElementById('raceForm');
+    const tableBody = document.querySelector('#raceTable tbody');
+    const bestTimesBody = document.getElementById('bestTimesBody');
+    const bestTimesDiv = document.getElementById('bestTimes');
+    const medalsPage = document.getElementById('medalsPage');
+    const medalsTable = document.getElementById('medalsTable');
+
+    function parseTimeToSeconds(timeStr) {
+      const [minutes, seconds, hundredths] = timeStr.split(':').map(Number);
+      return minutes * 60 + seconds + hundredths / 100;
+    }
+
+    function calculateMedals(entriesByDate) {
+      const medals = {};
+
+      for (const date in entriesByDate) {
+        const entries = entriesByDate[date];
+        entries.sort((a, b) => b.score - a.score);
+
+        if (entries[0]) medals[entries[0].name] = addMedal(medals[entries[0].name], 'gold');
+        if (entries[1]) medals[entries[1].name] = addMedal(medals[entries[1].name], 'silver');
+        if (entries[2]) medals[entries[2].name] = addMedal(medals[entries[2].name], 'bronze');
+      }
+
+      return medals;
+    }
+
+    function addMedal(athlete, type) {
+      if (!athlete) athlete = { gold: 0, silver: 0, bronze: 0 };
+      athlete[type]++;
+      return athlete;
+    }
+
+    function loadEntries() {
+      const entries = JSON.parse(localStorage.getItem('raceTimes')) || [];
+      tableBody.innerHTML = '';
+      const bestMiddle = Math.min(...entries.map(e => parseTimeToSeconds(e.middle)));
+      const bestSprint = Math.min(...entries.map(e => parseTimeToSeconds(e.sprint)));
+      const bestHanging = Math.max(...entries.map(e => parseTimeToSeconds(e.hanging)));
+
+      const scores = entries.map(entry => {
+        const m = parseTimeToSeconds(entry.middle);
+        const s = parseTimeToSeconds(entry.sprint);
+        const h = parseTimeToSeconds(entry.hanging);
+        return {
+          ...entry,
+          score: (bestMiddle / m + bestSprint / s + h / bestHanging),
+        };
+      });
+
+      const entriesByDate = {};
+      scores.forEach(entry => {
+        if (!entriesByDate[entry.date]) entriesByDate[entry.date] = [];
+        entriesByDate[entry.date].push(entry);
+      });
+
+      const medals = calculateMedals(entriesByDate);
+
+      scores.forEach(entry => {
+        let nameDisplay = entry.name;
+        const sameDateEntries = entriesByDate[entry.date].sort((a, b) => b.score - a.score);
+        const rank = sameDateEntries.findIndex(e => e.name === entry.name);
+        if (rank === 0) nameDisplay = '🥇 ' + nameDisplay;
+        else if (rank === 1) nameDisplay = '🥈 ' + nameDisplay;
+        else if (rank === 2) nameDisplay = '🥉 ' + nameDisplay;
+
+        const row = document.createElement('tr');
+        row.innerHTML = `
+          <td>${entry.date}</td>
+          <td>${nameDisplay}</td>
+          <td>${entry.middle}</td>
+          <td>${entry.sprint}</td>
+          <td>${entry.hanging}</td>
+          <td>${entry.score.toFixed(3)}</td>
+          <td><button class="delete-btn" onclick="deleteEntry(${entries.findIndex(e => e.name === entry.name && e.date === entry.date)})">Delete</button></td>
+        `;
+        tableBody.appendChild(row);
+      });
+
+      medalsPage.style.display = 'block';
+      medalsTable.innerHTML = '';
+      for (const name in medals) {
+        const m = medals[name];
+        const row = document.createElement('tr');
+        row.innerHTML = `<td>${name}</td><td>${m.gold}</td><td>${m.silver}</td><td>${m.bronze}</td>`;
+        medalsTable.appendChild(row);
+      }
+    }
+
+    function deleteEntry(index) {
+      const entries = JSON.parse(localStorage.getItem('raceTimes')) || [];
+      entries.splice(index, 1);
+      localStorage.setItem('raceTimes', JSON.stringify(entries));
+      loadEntries();
+    }
+
+    function showBestTimes() {
+      bestTimesDiv.style.display = 'block';
+      const entries = JSON.parse(localStorage.getItem('raceTimes')) || [];
+      const best = {};
+      entries.forEach(entry => {
+        if (!best[entry.name]) {
+          best[entry.name] = {
+            middle: parseTimeToSeconds(entry.middle),
+            sprint: parseTimeToSeconds(entry.sprint),
+            hanging: parseTimeToSeconds(entry.hanging),
+            display: entry
+          };
+        } else {
+          if (parseTimeToSeconds(entry.middle) < best[entry.name].middle) best[entry.name].display.middle = entry.middle;
+          if (parseTimeToSeconds(entry.sprint) < best[entry.name].sprint) best[entry.name].display.sprint = entry.sprint;
+          if (parseTimeToSeconds(entry.hanging) > best[entry.name].hanging) best[entry.name].display.hanging = entry.hanging;
+        }
+      });
+      bestTimesBody.innerHTML = '';
+      Object.values(best).forEach(b => {
+        const row = document.createElement('tr');
+        row.innerHTML = `
+          <td>${b.display.name}</td>
+          <td>${b.display.middle}</td>
+          <td>${b.display.sprint}</td>
+          <td>${b.display.hanging}</td>
+        `;
+        bestTimesBody.appendChild(row);
+      });
+    }
+
+    form.addEventListener('submit', function(e) {
+      e.preventDefault();
+      const raceTimes = JSON.parse(localStorage.getItem('raceTimes')) || [];
+      raceTimes.push({
+        date: document.getElementById('raceDate').value,
+        name: document.getElementById('athleteName').value,
+        middle: document.getElementById('middleDistance').value,
+        sprint: document.getElementById('sprintTime').value,
+        hanging: document.getElementById('hangingTime').value,
+      });
+      localStorage.setItem('raceTimes', JSON.stringify(raceTimes));
+      form.reset();
+      loadEntries();
+    });
+
+    loadEntries();
+  </script>
+</body>
+</html>

@@ -207,20 +207,34 @@
 
         if (entries.length === 0) return;
 
-        // Compute best global times for score calculations.
-        const bestMiddle = Math.min(...entries.map(e => parseTimeToSeconds(e.middle)));
-        const bestSprint = Math.min(...entries.map(e => parseTimeToSeconds(e.sprint)));
-        const bestHanging = Math.max(...entries.map(e => parseTimeToSeconds(e.hanging)));
+        // Compute best times for each athlete.
+        const bestTimes = {};
+        entries.forEach(entry => {
+            if (!bestTimes[entry.name]) {
+                bestTimes[entry.name] = {
+                    middle: parseTimeToSeconds(entry.middle),
+                    sprint: parseTimeToSeconds(entry.sprint),
+                    hanging: parseTimeToSeconds(entry.hanging)
+                };
+            } else {
+                bestTimes[entry.name].middle = Math.min(bestTimes[entry.name].middle, parseTimeToSeconds(entry.middle));
+                bestTimes[entry.name].sprint = Math.min(bestTimes[entry.name].sprint, parseTimeToSeconds(entry.sprint));
+                bestTimes[entry.name].hanging = Math.max(bestTimes[entry.name].hanging, parseTimeToSeconds(entry.hanging));
+            }
+        });
 
-        // Compute scores for each entry.
+        // Compute scores for each entry based on best times.
         const scores = entries.map(entry => {
-          const m = parseTimeToSeconds(entry.middle);
-          const s = parseTimeToSeconds(entry.sprint);
-          const h = parseTimeToSeconds(entry.hanging);
-          return {
-            ...entry,
-            score: (bestMiddle / m + bestSprint / s + h / bestHanging)
-          };
+            const bestMiddle = bestTimes[entry.name].middle;
+            const bestSprint = bestTimes[entry.name].sprint;
+            const bestHanging = bestTimes[entry.name].hanging;
+            const m = parseTimeToSeconds(entry.middle);
+            const s = parseTimeToSeconds(entry.sprint);
+            const h = parseTimeToSeconds(entry.hanging);
+            return {
+                ...entry,
+                score: (bestMiddle / m + bestSprint / s + h / bestHanging)
+            };
         });
 
         // Identify the first (reference) entry per athlete.
